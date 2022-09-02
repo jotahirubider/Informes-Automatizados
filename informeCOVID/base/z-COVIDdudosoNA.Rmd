@@ -1,0 +1,243 @@
+---
+title: "Revision Casos COVID"
+output:
+  pdf_document: default
+date: '`r format(Sys.time(), "%d-%m-%Y %H:%M")`'
+df_print: paged
+geometry: left=3cm,right=3cm,top=1.5cm,bottom=5cm
+header-includes: \usepackage{graphicx} \usepackage{lscape} \usepackage[export]{adjustbox}
+  \newcommand{\blandscape}{\begin{landscape}} \newcommand{\elandscape}{\end{landscape}}
+  \usepackage{fancyhdr} \pagestyle{fancyplain} \usepackage{caption} \setlength\headheight{2cm}
+  \fancyhead[L]{ \includegraphics[width=3cm,valign=c]{../img/logo_hospital.jpg}} \fancyhead[R]{
+  \begin{tabular}{l} Servicio de \\ Medicina Preventiva \\ y Salud Pública \end{tabular}
+  } \fancyfoot[LE,RO]{} \setlength{\headheight}{75pt}
+---
+
+```{r setup, include=FALSE, warning=FALSE}
+# OBTENER RUTAS DESDE ARCHIVO DE CONFIGURACION
+pacman::p_load(tidyverse,lubridate,knitr,RODBC,kableExtra,labelled,scales,purrr, tidyquant)
+# CONFIGURAR RUTAS
+
+# CARGAR FUNCIONES UTILES
+ruta_programa <- "\\\\woody\\asan\\Servicios\\EnfermeriaMedPreventiva\\AISLAMIENTOS TODO\\EXCEL AISLAMIENTOS\\INFORMES\\informeCOVID"
+# setwd(ruta_programa)
+ruta_mdb <- "\\\\woody\\asan\\Servicios\\EnfermeriaMedPreventiva\\AISLAMIENTOS TODO\\EXCEL AISLAMIENTOS\\Epi Info 7\\Projects\\IRAS\\IRAS.mdb"
+options(tinytex.verbose = TRUE)
+# CONFIGURAR OPCIONES PREDETERMINADAS DE CHUNKS
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
+ # NO MENSAJES
+# SET WORKING DIRECTORY
+knitr::opts_knit$set(root.dir=ruta_programa)
+
+
+#########################################################################
+####              PONER FECHA DE ULTIMO INFORME
+####              FORMATO DD/MM/AA    EJ: 30/12/21 HORA HH:MM:SS
+fecha_min_curva_parcial <- "01/03/22"
+fecha_ultimo_informe <- "26/07/22"
+fecha_ultimo_informe <- fecha_ultimo_informe %>% dmy()
+hora_ultimo_informe <- "13:50:00"
+fecha_hora_ultimo_informe <- ymd_hms(paste(
+  fecha_ultimo_informe, 
+  hora_ultimo_informe))
+####
+####
+#########################################################################
+```
+
+```{r include=FALSE}
+# CONEXION <- ACCESS FILE
+con <- odbcConnectAccess(ruta_mdb)
+# OBTENER NOMBRE DE TABLAS DE VIGILANCIA
+table_names <- sqlTables(con) %>% 
+  select(TABLE_NAME)
+vigilancia_tables <- table_names %>% 
+  filter(grepl("Vigilancia",TABLE_NAME)) %>% 
+  unlist()
+# CARGAR TABLAS VIGILANCIA EN TABLA UNICA
+vigilancia <- vigilancia_tables %>% 
+  set_names() %>% 
+  map(.f = ~ sqlFetch(channel = con,
+                      sqtable = .x)) %>%
+  reduce(left_join, by="GlobalRecordId")
+# CARGAR VARIABLES Y RESULTADOS DE INDICADORES Y NUMERO DE CAMAS
+if ("indicadores_resultados" %in% unlist(table_names)) {
+  indicadores_resultados <- sqlFetch(con, "indicadores_resultados") %>% 
+    select(everything())
+} else (print("No existe la tabla indicadores_resultados en el archivo .mdb"))
+if ("indicadores_variables" %in% unlist(table_names)) {
+  indicadores_variables <- sqlFetch(con, "indicadores_variables") %>%
+    mutate(calculo=gsub("/ ","/\n",calculo),
+           orderId=1:length(calculo))
+} else (print("No existe la tabla indicadores_variables en el archivo .mdb"))
+# CARGAR TABLAS HOSPITAL
+hospital_tables <- table_names %>% 
+  filter(grepl("Hospital",TABLE_NAME)) %>% 
+  unlist()
+n_camas <- hospital_tables %>% 
+  set_names() %>% 
+  map(.f = ~ sqlFetch(channel = con,
+                      sqtable = .x)) %>%
+  detect(.f = ~ "nCamas" %in% colnames(.x))
+covid_historico <- sqlFetch(channel = con,
+                            sqtable = "covid_historico")
+rm(table_names)
+# LIMPIAR CASOS BORRADOS E INACTIVOS
+validos <- vigilancia %>% filter(RECSTATUS==1)
+# rm(vigilancia,validos)
+
+
+# TABLAS MICROBIOLOGIA ----------------------------------------------------
+
+# PIVOT TABLE DE MICROBIOLOGIA
+micro <- validos %>% 
+  select(GlobalRecordId,
+         starts_with("microorganismo"),
+         starts_with("fechaMuestra"),
+         starts_with("mecanismoMR"),
+         starts_with("fechaActivacion"),
+         starts_with("fechaInactivacion")
+         ) %>% 
+  mutate(across(.cols = contains("fechaMuestra"),.fns = as.character.POSIXt),
+         across(.cols = matches("fechaActivacion|fechaInactivacion"), 
+                .fns = as.character)) %>% 
+  pivot_longer(cols=-c(GlobalRecordId)) %>% 
+# Pivot table by GLobalREcordId
+  arrange(GlobalRecordId,str_sub(name,-1)) %>% # Ordenar por orden de microorganismo
+  mutate(orderId=str_sub(name,-1),
+         name=case_when(
+           grepl("Estado",name)                  ~ "estadoAislamiento",
+           grepl("MROtro",name)                  ~ "otroMecanismo",
+           grepl("mecanismoMR",name)             ~ "mecanismoMR",
+           grepl("fechaMuestra",name)            ~ "fechaMuestra",
+           grepl("fechaActivacion",name)         ~ "fechaActivacion",
+           grepl("fechaInactivacion",name)       ~ "fechaInactivacion",
+           grepl("microorganismo",name)          ~ "microorganismo")
+  ) %>% 
+  # Quitar todos los NA
+  filter(!is.na(value))
+
+# PIVOT TABLE DE MICROORGANISMOS ACTIVOS
+micro2 <- micro %>% pivot_wider(names_from = name,values_from = value) %>% 
+  # select(-estadoAislamiento) %>% 
+  filter(!is.na(microorganismo)) %>% 
+  distinct(GlobalRecordId,microorganismo,mecanismoMR,.keep_all = T) %>% 
+  mutate(
+    mecanismoMR=case_when(
+      mecanismoMR=="R = 3 grupos"              ~ "MR",
+      mecanismoMR=="Carbapenemasa"             ~ "p. de carbapenemasa",
+      grepl("BLEE",mecanismoMR)                ~ "BLEE",
+      startsWith(mecanismoMR, "R meticilina")  ~ "R meticilina"),
+    # Correción de nombre de Clostridioides difficile
+    microorganismo=if_else(microorganismo=="Clostridium difficile",
+                           "Clostridioides difficile",
+                           microorganismo),
+    # Reformateo de nombre de microorganismo
+    microorganismo=if_else(
+      is.na(mecanismoMR),
+      microorganismo,
+      paste(microorganismo,mecanismoMR)),
+    fechaMuestra=parse_date(fechaMuestra,format = "%Y-%m-%d")) %>% 
+  # Remover columnas no necesarios
+  select(-orderId,-mecanismoMR)
+
+
+# TABLAS INFORME ----------------------------------------------------------
+
+# GENERAR TABLAS PARA INFORME POR PLANTA
+tablas_informe <- validos %>% 
+  select(aSIP,aNHC,INGRESO,GlobalRecordId,contains("Time"),estadoActual,plantaActual,camaActual,tipoAislamiento,origenInfeccion,
+         fechaAislamiento, fechaRetirada, motivoRetirada, fechaAlta, enfermeraActual, ingresoPorCovid) %>% 
+  left_join(micro2,by="GlobalRecordId") %>%
+  # select(-GlobalRecordId) %>% 
+  mutate(tipoAislamiento=str_to_title(tipoAislamiento),
+         origenInfeccion=str_to_sentence(origenInfeccion)) %>% 
+  filter(microorganismo=="Virus SARS-CoV-2 (COVID-19)") %>% 
+  arrange(desc(LastSaveTime)) %>% 
+  mutate(
+    fechaActivacion=ymd_hms(fechaActivacion),
+    fechaInactivacion=ymd_hms(fechaInactivacion),
+  )
+
+
+total_ingresados <- tablas_informe %>% filter(estadoActual=="ACTIVO" & estadoAislamiento=="ACTIVO")
+
+
+total_criticos <- tablas_informe %>% filter(estadoActual=="ACTIVO"& estadoAislamiento=="ACTIVO",
+                                            plantaActual=="UMI" | plantaActual=="REA" |
+                                              plantaActual=="UCP" | plantaActual=="UCN" |
+                                              plantaActual=="REQ")
+###### PONER VALIDACION DE FECHA
+
+# fecha_ultimo_informe <- readline(prompt = "Indique fecha del último informe (DD/MM/AA): ") %>% 
+#   dmy()
+
+casos_nuevos <- tablas_informe %>% 
+  filter(fechaActivacion>fecha_hora_ultimo_informe,
+         estadoAislamiento=="ACTIVO" & estadoActual=="ACTIVO") %>% 
+  filter(INGRESO=="Primer ingreso") # QUITA LOS REINGRESOS
+
+altas <- tablas_informe %>% 
+  filter(fechaInactivacion>fecha_hora_ultimo_informe,
+         estadoAislamiento=="INACTIVO",
+         motivoRetirada!="EXITUS"
+           )
+
+exitus <- tablas_informe %>% 
+  filter(fechaInactivacion>fecha_hora_ultimo_informe,
+         estadoAislamiento=="INACTIVO",
+         motivoRetirada=="EXITUS",
+         ingresoPorCovid=="SI"
+  )
+
+detalle_exitus <- exitus %>% 
+  transmute(SIP=aSIP,
+            `Fecha exitus`=fechaInactivacion %>% 
+              format(., format="%d-%m-%Y"))
+  
+
+
+```
+
+```{r include=FALSE}
+
+covid_dudosos_na <- total_ingresados %>% 
+  filter(ingresoPorCovid=="DUDOSO" |
+           is.na(ingresoPorCovid)) %>%
+  select(aSIP,aNHC,camaActual,ingresoPorCovid) %>% 
+  rename(SIP=aSIP,NHC=aNHC,Cama=camaActual,IngresoPorCovid=ingresoPorCovid)
+
+covid_estancia_prolongada <- total_ingresados %>% 
+  mutate(dias_positivo=as.integer(today()-fechaMuestra)) %>% 
+  filter(
+    (dias_positivo)>=10
+  ) %>%
+  select(aSIP,aNHC,camaActual,ingresoPorCovid,dias_positivo) %>% 
+  rename(SIP=aSIP,NHC=aNHC,Cama=camaActual,IngresoPorCovid=ingresoPorCovid,
+         `Días positivo`=dias_positivo) %>% 
+  arrange(Cama)
+  
+```
+
+## Listado causa COVID dudoso o ausente
+
+```{r echo=FALSE, fig.align='center', results='asis', supress=TRUE}
+
+covid_dudosos_na %>%
+  kable() %>% kable_styling(latex_options = "hold_position") %>% 
+  print()
+
+```
+
+## Positivo mayor o igual a 10 días
+
+```{r echo=FALSE, fig.align='center', results='asis', supress=TRUE}
+
+covid_estancia_prolongada %>%
+  kable() %>% kable_styling(latex_options = "hold_position") %>% 
+  print()
+```

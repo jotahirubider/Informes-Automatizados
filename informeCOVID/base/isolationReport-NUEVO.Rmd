@@ -1,0 +1,422 @@
+---
+title: "SITUACIÓN COVID-19"
+output:
+  pdf_document: default
+date: '`r format(Sys.time(), "%d-%m-%Y %H:%M")`'
+df_print: paged
+geometry: left=3cm,right=3cm,top=1.5cm,bottom=5cm
+header-includes: \usepackage{graphicx} \usepackage{lscape} \usepackage[export]{adjustbox}
+  \newcommand{\blandscape}{\begin{landscape}} \newcommand{\elandscape}{\end{landscape}}
+  \usepackage{fancyhdr} \pagestyle{fancyplain} \usepackage{caption} \setlength\headheight{2cm}
+  \fancyhead[L]{ \includegraphics[width=3cm,valign=c]{../img/logo_hospital.jpg}} \fancyhead[R]{
+  \begin{tabular}{l} Servicio de \\ Medicina Preventiva \\ y Salud Pública \end{tabular}
+  } \fancyfoot[LE,RO]{} \setlength{\headheight}{75pt}
+---
+
+```{r setup, include=FALSE, warning=FALSE}
+# OBTENER RUTAS DESDE ARCHIVO DE CONFIGURACION
+pacman::p_load(tidyverse,lubridate,knitr,RODBC,kableExtra,labelled,scales,purrr, tidyquant)
+# CONFIGURAR RUTAS
+
+# CARGAR FUNCIONES UTILES
+ruta_programa <- "\\\\woody\\asan\\Servicios\\EnfermeriaMedPreventiva\\AISLAMIENTOS TODO\\EXCEL AISLAMIENTOS\\INFORMES\\informeCOVID"
+# setwd(ruta_programa)
+ruta_mdb <- "\\\\woody\\asan\\Servicios\\EnfermeriaMedPreventiva\\AISLAMIENTOS TODO\\EXCEL AISLAMIENTOS\\Epi Info 7\\Projects\\IRAS\\IRAS.mdb"
+options(tinytex.verbose = TRUE)
+# CONFIGURAR OPCIONES PREDETERMINADAS DE CHUNKS
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
+ # NO MENSAJES
+# SET WORKING DIRECTORY
+knitr::opts_knit$set(root.dir=ruta_programa)
+
+
+#########################################################################
+####              PONER FECHA DE ULTIMO INFORME
+####              FORMATO DD/MM/AA    EJ: 30/12/21 HORA HH:MM:SS
+fecha_min_curva_parcial <- "01/03/22"
+fecha_ultimo_informe <- "26/07/22"
+fecha_ultimo_informe <- fecha_ultimo_informe %>% dmy()
+hora_ultimo_informe <- "13:50:00"
+fecha_hora_ultimo_informe <- ymd_hms(paste(
+  fecha_ultimo_informe, 
+  hora_ultimo_informe))
+####
+####
+#########################################################################
+```
+
+```{r include=FALSE}
+# CONEXION <- ACCESS FILE
+con <- odbcConnectAccess(ruta_mdb)
+# OBTENER NOMBRE DE TABLAS DE VIGILANCIA
+table_names <- sqlTables(con) %>% 
+  select(TABLE_NAME)
+vigilancia_tables <- table_names %>% 
+  filter(grepl("Vigilancia",TABLE_NAME)) %>% 
+  unlist()
+# CARGAR TABLAS VIGILANCIA EN TABLA UNICA
+vigilancia <- vigilancia_tables %>% 
+  set_names() %>% 
+  map(.f = ~ sqlFetch(channel = con,
+                      sqtable = .x)) %>%
+  reduce(left_join, by="GlobalRecordId")
+# CARGAR VARIABLES Y RESULTADOS DE INDICADORES Y NUMERO DE CAMAS
+if ("indicadores_resultados" %in% unlist(table_names)) {
+  indicadores_resultados <- sqlFetch(con, "indicadores_resultados") %>% 
+    select(everything())
+} else (print("No existe la tabla indicadores_resultados en el archivo .mdb"))
+if ("indicadores_variables" %in% unlist(table_names)) {
+  indicadores_variables <- sqlFetch(con, "indicadores_variables") %>%
+    mutate(calculo=gsub("/ ","/\n",calculo),
+           orderId=1:length(calculo))
+} else (print("No existe la tabla indicadores_variables en el archivo .mdb"))
+# CARGAR TABLAS HOSPITAL
+hospital_tables <- table_names %>% 
+  filter(grepl("Hospital",TABLE_NAME)) %>% 
+  unlist()
+n_camas <- hospital_tables %>% 
+  set_names() %>% 
+  map(.f = ~ sqlFetch(channel = con,
+                      sqtable = .x)) %>%
+  detect(.f = ~ "nCamas" %in% colnames(.x))
+covid_historico <- sqlFetch(channel = con,
+                            sqtable = "covid_historico")
+rm(table_names)
+# LIMPIAR CASOS BORRADOS E INACTIVOS
+validos <- vigilancia %>% filter(RECSTATUS==1)
+# rm(vigilancia,validos)
+
+
+# TABLAS MICROBIOLOGIA ----------------------------------------------------
+
+# PIVOT TABLE DE MICROBIOLOGIA
+micro <- validos %>% 
+  select(GlobalRecordId,
+         starts_with("microorganismo"),
+         starts_with("fechaMuestra"),
+         starts_with("mecanismoMR"),
+         starts_with("fechaActivacion"),
+         starts_with("fechaInactivacion")
+         ) %>% 
+  mutate(across(.cols = contains("fechaMuestra"),.fns = as.character.POSIXt),
+         across(.cols = matches("fechaActivacion|fechaInactivacion"), 
+                .fns = as.character)) %>% 
+  pivot_longer(cols=-c(GlobalRecordId)) %>% 
+# Pivot table by GLobalREcordId
+  arrange(GlobalRecordId,str_sub(name,-1)) %>% # Ordenar por orden de microorganismo
+  mutate(orderId=str_sub(name,-1),
+         name=case_when(
+           grepl("Estado",name)                  ~ "estadoAislamiento",
+           grepl("MROtro",name)                  ~ "otroMecanismo",
+           grepl("mecanismoMR",name)             ~ "mecanismoMR",
+           grepl("fechaMuestra",name)            ~ "fechaMuestra",
+           grepl("fechaActivacion",name)         ~ "fechaActivacion",
+           grepl("fechaInactivacion",name)       ~ "fechaInactivacion",
+           grepl("microorganismo",name)          ~ "microorganismo")
+  ) %>% 
+  # Quitar todos los NA
+  filter(!is.na(value))
+
+# PIVOT TABLE DE MICROORGANISMOS ACTIVOS
+micro2 <- micro %>% pivot_wider(names_from = name,values_from = value) %>% 
+  # select(-estadoAislamiento) %>% 
+  filter(!is.na(microorganismo)) %>% 
+  distinct(GlobalRecordId,microorganismo,mecanismoMR,.keep_all = T) %>% 
+  mutate(
+    mecanismoMR=case_when(
+      mecanismoMR=="R = 3 grupos"              ~ "MR",
+      mecanismoMR=="Carbapenemasa"             ~ "p. de carbapenemasa",
+      grepl("BLEE",mecanismoMR)                ~ "BLEE",
+      startsWith(mecanismoMR, "R meticilina")  ~ "R meticilina"),
+    # Correción de nombre de Clostridioides difficile
+    microorganismo=if_else(microorganismo=="Clostridium difficile",
+                           "Clostridioides difficile",
+                           microorganismo),
+    # Reformateo de nombre de microorganismo
+    microorganismo=if_else(
+      is.na(mecanismoMR),
+      microorganismo,
+      paste(microorganismo,mecanismoMR)),
+    fechaMuestra=parse_date(fechaMuestra,format = "%Y-%m-%d")) %>% 
+  # Remover columnas no necesarios
+  select(-orderId,-mecanismoMR)
+
+
+# TABLAS INFORME ----------------------------------------------------------
+
+# GENERAR TABLAS PARA INFORME POR PLANTA
+tablas_informe <- validos %>% 
+  select(aSIP,aNHC,INGRESO,GlobalRecordId,contains("Time"),estadoActual,plantaActual,camaActual,tipoAislamiento,origenInfeccion,
+         fechaAislamiento, fechaRetirada, motivoRetirada, fechaAlta, enfermeraActual, ingresoPorCovid) %>% 
+  left_join(micro2,by="GlobalRecordId") %>%
+  # select(-GlobalRecordId) %>% 
+  mutate(tipoAislamiento=str_to_title(tipoAislamiento),
+         origenInfeccion=str_to_sentence(origenInfeccion)) %>% 
+  filter(microorganismo=="Virus SARS-CoV-2 (COVID-19)") %>% 
+  arrange(desc(LastSaveTime)) %>% 
+  mutate(
+    fechaActivacion=ymd_hms(fechaActivacion),
+    fechaInactivacion=ymd_hms(fechaInactivacion),
+  )
+
+
+total_ingresados <- tablas_informe %>% filter(estadoActual=="ACTIVO" & estadoAislamiento=="ACTIVO")
+
+
+total_criticos <- tablas_informe %>% filter(estadoActual=="ACTIVO"& estadoAislamiento=="ACTIVO",
+                                            plantaActual=="UMI" | plantaActual=="REA" |
+                                              plantaActual=="UCP" | plantaActual=="UCN" |
+                                              plantaActual=="REQ")
+###### PONER VALIDACION DE FECHA
+
+# fecha_ultimo_informe <- readline(prompt = "Indique fecha del último informe (DD/MM/AA): ") %>% 
+#   dmy()
+
+casos_nuevos <- tablas_informe %>% 
+  filter(fechaActivacion>fecha_hora_ultimo_informe,
+         estadoAislamiento=="ACTIVO" & estadoActual=="ACTIVO") %>% 
+  filter(INGRESO=="Primer ingreso") # QUITA LOS REINGRESOS
+
+altas <- tablas_informe %>% 
+  filter(fechaInactivacion>fecha_hora_ultimo_informe,
+         estadoAislamiento=="INACTIVO",
+         motivoRetirada!="EXITUS"
+           )
+
+exitus <- tablas_informe %>% 
+  filter(fechaInactivacion>fecha_hora_ultimo_informe,
+         estadoAislamiento=="INACTIVO",
+         motivoRetirada=="EXITUS",
+         ingresoPorCovid=="SI"
+  )
+
+detalle_exitus <- exitus %>% 
+  transmute(SIP=aSIP,
+            `Fecha exitus`=fechaInactivacion %>% 
+              format(., format="%d-%m-%Y"))
+  
+
+
+```
+
+```{r include=FALSE}
+estado_hoy <- tibble(.rows = 1) %>% 
+  mutate(fecha=today(),
+         ingresados_por_covid=total_ingresados %>%
+           filter(ingresoPorCovid=="SI") %>%
+           nrow(),
+         criticos_por_covid=total_criticos %>%
+           filter(ingresoPorCovid=="SI") %>%
+           nrow(),
+         total_ingresados=total_ingresados %>% nrow(),
+         total_criticos=total_criticos %>% nrow(),
+         casos_nuevos=casos_nuevos %>% nrow(),
+         altas=altas %>% nrow(),
+         exitus=exitus %>% nrow()) %>% 
+    relocate(ingresados_por_covid,
+             criticos_por_covid,
+             .after = exitus)
+
+total_ingresados %>% filter(ingresoPorCovid=="DUDOSO" |
+                              is.na(ingresoPorCovid))
+```
+
+```{r include=FALSE}
+
+
+covid_historico_new <- covid_historico %>% 
+  # SI YA EXISTE UNA FILA CON LA MISMA FECHA SE QUITA
+  filter(fecha!=today()) %>% 
+  bind_rows(estado_hoy) %>% 
+  arrange(fecha)
+  
+
+# COPIA DE SEGURIDAD
+sqlSave(channel = con,
+        dat=covid_historico,
+        tablename = "covid_historico_copia",
+        safer=F,
+        fast=F,
+        rownames = F,
+        append = F,
+        varTypes = c(fecha="date"))
+# GRABAR EN BASE DE DATOS
+sqlSave(channel = con,
+        dat=covid_historico_new,
+        tablename =  "covid_historico",
+        safer=F,
+        fast=F,
+        rownames = F,
+        append = F,
+        varTypes = c(fecha="date")
+)
+# BORRAR COPIA DE SEGURIDAD
+sqlDrop(con,"covid_historico_copia")
+odbcClose(con)
+
+
+tabla_hoy <- estado_hoy %>% 
+  rename(Fecha=fecha,
+                      `Total ingresados`=total_ingresados,
+                      `Total críticos`=total_criticos,
+                      `Casos nuevos`=casos_nuevos,
+                      Altas=altas,
+                      Exitus=exitus)
+
+tabla_por_plantas <- total_ingresados %>% 
+   group_by(plantaActual) %>%  
+   summarise(n=n()) %>% 
+  rename(Planta=plantaActual,
+         `Nº de ingresados`=n)
+
+# FECHAS DINAMICAS  -------------------------------------------------------------
+
+fecha_max <- (covid_historico_new$fecha %>% 
+  max() + days(7)) %>% 
+  as.character.Date()
+
+fecha_min_curva_parcial <- fecha_min_curva_parcial %>% 
+  dmy() %>% as.character.Date()
+
+# CURVA TOTAL -------------------------------------------------------------
+
+curva_ingresados_total <- covid_historico_new %>% 
+  pivot_longer(cols = c(total_ingresados,total_criticos),
+               names_to = "name",
+               values_to = "value") %>% 
+  ggplot(aes(x=fecha,
+             y=value,
+             color=name)) +
+  geom_line(size=1) +
+  theme_bw() +
+  xlab("Fecha")+
+  ylab("Nº") +
+  labs(color="") +
+  scale_color_discrete(name="",labels=c("Total críticos","Total ingresados")) +
+  scale_x_datetime(breaks="1 month",labels=date_format(format = "%m-%y"),
+                   expand = c(0,0)) +
+  theme(axis.text.x = element_text(angle=90),
+        legend.position = "bottom",
+        plot.title = element_text(hjust = 0.5)) +
+  labs(title = "Período completo")
+
+
+curva_total <- covid_historico_new %>% 
+  select(fecha,casos_nuevos,exitus) %>% 
+  pivot_longer(cols = c(casos_nuevos,exitus),
+               names_to = "name",
+               values_to = "value") %>% 
+  mutate(fecha=as.Date.POSIXct(fecha)) %>% 
+  ggplot(aes(x=fecha,
+             y=value,
+             color=name)) +
+  geom_ma(ma_fun = SMA, n=14,size=1,linetype="solid")+
+  theme_bw() +
+  xlab("Fecha")+
+  ylab("Nº") +
+  labs(color="") +
+  scale_x_date(breaks="1 day",
+               labels=date_format(format = "%d-%m-%y"),
+               expand = c(-0.030,0)) +
+  scale_color_manual(values = c("#23993f","#f54242"),
+                     labels=c("Casos nuevos","Exitus")) +
+  theme(axis.text.x = element_text(angle=90),
+        legend.position = "bottom",
+        plot.title = element_text(hjust = 0.5),
+        plot.caption = element_text(hjust = 0.5)) +
+  labs(title = "Período completo") +
+  labs(caption = "Media móvil 7 días") +
+  coord_x_date(xlim=c("2020-03-01",fecha_max))
+  
+    
+
+# CURVA PARCIAL -----------------------------------------------------------
+
+curva_ingresados_parcial <- covid_historico_new %>% 
+  filter(fecha>=as_date(fecha_min_curva_parcial)) %>% 
+  pivot_longer(cols = c(total_ingresados,total_criticos),
+               names_to = "name",
+               values_to = "value") %>% 
+  ggplot(aes(x=fecha,
+             y=value,
+             color=name)) +
+  geom_line(size=1) +
+  theme_bw() +
+  xlab("Fecha")+
+  ylab("Nº") +
+  labs(color="") +
+  scale_color_discrete(name="",labels=c("Total críticos","Total ingresados")) +
+  scale_x_datetime(breaks="1 month",labels=date_format(format = "%m-%y"),
+                   expand = c(0,0)) +
+  labs(title = "Período Marzo-Julio 2022")+
+  theme(axis.text.x = element_text(angle=90),
+        legend.position = "bottom",
+        plot.title = element_text(hjust = 0.5))
+
+# casos nuevos y exitus
+
+curva_parcial <- covid_historico_new %>% 
+  filter(fecha>=as_date(fecha_min_curva_parcial)) %>% 
+  select(fecha,casos_nuevos,exitus) %>% 
+  pivot_longer(cols = c(casos_nuevos,exitus),
+               names_to = "name",
+               values_to = "value") %>% 
+  mutate(fecha=as.Date.POSIXct(fecha)) %>% 
+  ggplot(aes(x=fecha,
+             y=value,
+             color=name)) +
+  geom_ma(ma_fun = SMA, n=7,size=1,linetype="solid")+
+  theme_bw() +
+  xlab("Fecha")+
+  ylab("Nº") +
+  labs(color="") +
+  scale_x_date(breaks="1 month",
+               labels=date_format(format = "%m-%y"),
+               expand = c(-0.045,0)) +
+  scale_color_manual(values = c("#23993f","#f54242"),
+                     labels=c("Casos nuevos","Exitus")) +
+  theme(axis.text.x = element_text(angle=90),
+        legend.position = "bottom",
+        plot.title = element_text(hjust = 0.5),
+        plot.caption = element_text(hjust = 0.5)) +
+  labs(title = "Período Marzo-Julio 2022",
+       caption = "Media móvil 7 días") +
+  coord_x_date(xlim=c(fecha_min_curva_parcial,fecha_max))
+```
+
+```{r echo=FALSE, fig.align='center', results='asis', supress=TRUE}
+
+tabla_hoy %>%
+  select(-Fecha) %>% 
+  kable() %>% kable_styling(latex_options = "hold_position") %>% 
+  print()
+tabla_por_plantas %>% 
+  kable() %>% kable_styling(latex_options = "hold_position") %>% 
+  print()
+
+
+
+```
+
+```{r echo=FALSE, fig.align='center', results='asis', supress=TRUE}
+if (detalle_exitus %>% nrow() > 0) {
+  cat("<center>Exitus detallados (por causa COVID)</center>")
+  detalle_exitus %>% 
+    kable() %>% kable_styling(latex_options = "hold_position") %>% 
+    print()
+}
+
+```
+
+\clearpage
+
+```{r echo=FALSE, fig.align='center', results='asis', supress=TRUE, fig.height=4}
+curva_ingresados_parcial
+curva_parcial
+curva_ingresados_total
+curva_total
+```

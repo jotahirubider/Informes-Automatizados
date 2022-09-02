@@ -1,0 +1,69 @@
+---
+title: "SITUACIÓN COVID-19"
+output:
+  pdf_document: default
+date: '`r format(Sys.time(), "%d-%m-%Y %H:%M")`'
+df_print: paged
+geometry: left=3cm,right=3cm,top=1.5cm,bottom=5cm
+header-includes: \usepackage{graphicx} \usepackage{lscape} \usepackage[export]{adjustbox}
+  \newcommand{\blandscape}{\begin{landscape}} \newcommand{\elandscape}{\end{landscape}}
+  \usepackage{fancyhdr} \pagestyle{fancyplain} \usepackage{caption} \setlength\headheight{2cm}
+  \fancyhead[L]{ \includegraphics[width=3cm,valign=c]{../img/logo_hospital.jpg}} \fancyhead[R]{
+  \begin{tabular}{l} Servicio de \\ Medicina Preventiva \\ y Salud Pública \end{tabular}
+  } \setlength{\headheight}{75pt}
+---
+
+```{r setup, include=FALSE, warning=FALSE}
+# CARGAR PAQUETES NECESARIOS
+pacman::p_load(tidyverse,lubridate,knitr,RODBC,kableExtra,labelled,scales,purrr, tidyquant)
+# CONFIGURAR RUTAS
+ruta_mdb <- gsub('"','',Sys.getenv("RUTA_MDB"))
+ruta_programa <- gsub('"','',Sys.getenv("RUTA_PROGRAMA"))
+# EXPLICITAR ERRORES
+options(tinytex.verbose = TRUE)
+# CONFIGURAR OPCIONES PREDETERMINADAS DE CHUNKS
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
+# SET WORKING DIRECTORY
+knitr::opts_knit$set(root.dir=ruta_programa)
+
+```
+
+```{r include=FALSE}
+source("base/1-dataWrangling.R")
+source("base/2-trends.R")
+```
+
+```{r echo=FALSE, fig.align='center', results='asis', supress=TRUE}
+tabla_hoy %>%
+  select(-Fecha) %>% 
+  kable() %>% kable_styling(latex_options = "hold_position") %>% 
+  print()
+tabla_por_plantas %>% 
+  kable() %>% kable_styling(latex_options = "hold_position") %>% 
+  print()
+```
+
+```{r echo=FALSE, fig.align='center', results='asis', supress=TRUE}
+if (detalle_exitus %>% nrow() > 0) {
+  cat("<center>Exitus detallados (por causa COVID)</center>")
+  detalle_exitus %>% 
+    kable() %>% kable_styling(latex_options = "hold_position") %>% 
+    print()
+}
+
+```
+
+*Corte realizado desde la fecha y hora del último informe (`r as.character.Date(fecha_hora_ultimo_informe, format="%d-%m-%Y %H:%M")`*)
+
+\clearpage
+
+```{r echo=FALSE, fig.align='center', results='asis', supress=TRUE, fig.height=4}
+curva_ingresados_parcial
+curva_parcial
+curva_ingresados_total
+curva_total
+```

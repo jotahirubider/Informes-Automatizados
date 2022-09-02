@@ -1,0 +1,1 @@
+Error : LaTeX failed to compile K:/COVID//2022-09-02-Informe-Situacion-COVID.tex. See https://yihui.org/tinytex/r/#debugging for debugging tips. See 2022-09-02-Informe-Situacion-COVID.log for more info.

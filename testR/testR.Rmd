@@ -1,0 +1,22 @@
+---
+title: "PRUEBA"
+output:
+  pdf_document: default
+date: '`r format(Sys.time(), "%d-%m-%Y %H:%M")`'
+df_print: paged
+geometry: left=3cm,right=3cm,top=1.5cm,bottom=5cm
+header-includes: \usepackage{graphicx} \usepackage{lscape} \usepackage[export]{adjustbox}
+  \newcommand{\blandscape}{\begin{landscape}} \newcommand{\elandscape}{\end{landscape}}
+  \usepackage{fancyhdr} \pagestyle{fancyplain} \usepackage{caption} \setlength\headheight{2cm}
+  \fancyhead[L]{ \includegraphics[width=3cm,valign=c]{img/logo_hospital.jpg}} \fancyhead[R]{
+  \begin{tabular}{l} Servicio de \\ Medicina Preventiva \\ y Salud Pública \end{tabular}
+  } \setlength{\headheight}{75pt}
+---
+
+```{r include=FALSE}
+# CONFIGURAR RUTA DEL PROGRAMA AQUI
+ruta_programa <- "//woody/asan/Servicios/EnfermeriaMedPreventiva/APLICACIONES/AUTOMATIZACION/testR"
+knitr::opts_knit$set(root.dir=ruta_programa)
+```
+
+Si este documento genera un PDF todos los paquetes han sido cargados correctamente.

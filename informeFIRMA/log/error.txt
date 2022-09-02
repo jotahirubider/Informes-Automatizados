@@ -1,0 +1,1 @@
+Error : LaTeX failed to compile K:/FIRMA/2022-09-02-Informe-FIRMA.tex. See https://yihui.org/tinytex/r/#debugging for debugging tips. See 2022-09-02-Informe-FIRMA.log for more info.

@@ -1,0 +1,1 @@
+msg "%username%" REVISAR INFORME DE AISLAMIENTOS!

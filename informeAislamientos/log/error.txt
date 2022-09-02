@@ -1,0 +1,1 @@
+Error : LaTeX failed to compile K:/AISLAMIENTOS//2022-09-02-Limpieza-Habitaciones.tex. See https://yihui.org/tinytex/r/#debugging for debugging tips. See 2022-09-02-Limpieza-Habitaciones.log for more info.

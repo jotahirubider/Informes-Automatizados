@@ -1,0 +1,151 @@
+---
+title: "INFORME DE SEGUIMIENTO DE PACIENTES CON PRECAUCIONES DE AISLAMIENTO"
+output:
+  pdf_document: default
+date: '`r format(Sys.time(), "%d-%m-%Y %H:%M")`'
+df_print: paged
+geometry: left=3cm,right=3cm,top=1.5cm,bottom=5cm
+header-includes: \usepackage{graphicx} \usepackage{lscape} \usepackage[export]{adjustbox}
+  \newcommand{\blandscape}{\begin{landscape}} \newcommand{\elandscape}{\end{landscape}}
+  \usepackage{fancyhdr} \pagestyle{fancyplain} \usepackage{caption} \setlength\headheight{2cm}
+  \fancyhead[L]{ \includegraphics[width=3cm,valign=c]{../img/logo_hospital.jpg}} \fancyhead[R]{
+  \begin{tabular}{l} Servicio de \\ Medicina Preventiva \\ y Salud Pública \end{tabular}
+  } \setlength{\headheight}{75pt}
+---
+
+```{r setup, include=FALSE, warning=FALSE}
+
+pacman::p_load(readxl,rmarkdown,tidyverse,lubridate,knitr,RODBC,kableExtra)
+# CONFIGURAR RUTAS
+
+ruta_mdb <- gsub('"','',Sys.getenv("RUTA_MDB"))
+
+
+ruta_programa <- gsub('"','',Sys.getenv("RUTA_PROGRAMA"))
+
+# CONFIGURAR OPCIONES PREDETERMINADAS DE CHUNKS
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
+ # NO MENSAJES
+# SET WORKING DIRECTORY
+knitr::opts_knit$set(root.dir=ruta_programa)
+knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+dia_semana <- today() %>% wday()
+```
+
+```{r load, include=FALSE, warning=FALSE}
+# CARGAR CONSTANTES 
+source("utils/constants.R")
+# CARGAR CODIGO
+source("base/1-dataWrangling.R")
+source("base/2-tablesByFloor.R")
+source("base/3-indicators.R")
+```
+
+# `r if(dia_semana==dia_informe_completo) "Introducción"`
+
+`r if(dia_semana==dia_informe_completo) "La transmisión de microorganismos dentro de un entorno sanitario requiere tres elementos: la fuente o reservorio, un huésped susceptible y un modo de transmisión. El aislamiento es una de las herramientas utilizadas para interrumpir o al menos limitar, la transmisión intrahospitalaria de microorganismos y enfermedades epidemiológicamente relevantes."`
+
+`r if(dia_semana==dia_informe_completo) "A continuación, se exponen los pacientes ingresados con precauciones de transmisión ampliadas en el momento de remisión de este informe. Se agregan dos indicadores por unidad de hospitalización y una tabla resumen agregada al final del documento."`
+
+\clearpage
+
+## Mapa de aislamientos de MMR
+
+```{r mapaAislamiento, echo=FALSE, results='asis', fig.align='center', warning=FALSE}
+options(knitr.kable.NA = "")
+tabla_cruzada %>%
+  kable() %>% kable_styling(latex_options = c("hold_position",
+                                              "striped"),
+                            full_width = T) %>% 
+  row_spec(0,bold=TRUE) %>% 
+  column_spec(2,bold=TRUE) %>% 
+  print()
+cat("MMR: microorganismo multirresistente. EPC: enterobacterias productoras de carbapenemasa.")
+```
+
+`r if(dia_semana==dia_informe_completo) "\\clearpage"`
+
+`r if(dia_semana==dia_informe_completo) "\\blandscape"`
+
+# `r if(dia_semana==dia_informe_completo) "Indicadores globales de presión de aislamientos"`
+
+```{r indicadores, echo=FALSE, fig.align='center', message=FALSE, warning=FALSE, results='asis', warning=FALSE}
+# Ns de camas
+if (dia_semana==dia_informe_completo) {
+  indicadores_tabla %>% print()
+  cat("PA: presión de aislamientos. TA: tasa de aislamientos. EPC: enterobacterias productoras de carbapenemasa.")
+}
+```
+
+`r if(dia_semana==dia_informe_completo) "\\elandscape"`
+
+`r if(dia_semana==dia_informe_completo) "\\clearpage"`
+
+# `r if(dia_semana==dia_informe_completo) "Evolución de indicadores"`
+
+## `r if(dia_semana==dia_informe_completo) "Nº de aislamientos totales y COVID-19"`
+
+```{r plotAislamientos, echo=FALSE, fig.align='center', message=FALSE, warning=FALSE, results='asis',fig.height=2, warning=FALSE}
+if (dia_semana==dia_informe_completo) {
+  source("base/4-trends.R")
+  plt_aisl_totales
+}
+```
+
+## `r if(dia_semana==dia_informe_completo) "Presión de aislamientos global y por área hospitalaria"`
+
+```{r plotPresionAislamiento, echo=FALSE, fig.align='center', message=FALSE, warning=FALSE, results='asis',fig.height=2, warning=FALSE}
+if (dia_semana==dia_informe_completo) {
+  plt_pa_global
+}
+```
+
+## `r if(dia_semana==dia_informe_completo) "Presión de aislamientos nosocomiales"`
+
+```{r plotNosocomial, echo=FALSE, fig.align='center', message=FALSE, warning=FALSE, results='asis',fig.height=2, warning=FALSE}
+if (dia_semana==dia_informe_completo) {
+  plt_pa_nosocomial
+}
+```
+
+`r if(dia_semana==dia_informe_completo) "\\clearpage"`
+
+## `r if(dia_semana==dia_informe_completo) "Presión de aislamientos por microorganismo"`
+
+```{r plotMMR, echo=FALSE, fig.align='center', message=FALSE, warning=FALSE, results='asis',fig.height=8, warning=FALSE, message=FALSE}
+if (dia_semana==dia_informe_completo) {
+  plt_mmr
+}
+```
+
+\captionsetup[table]{labelformat=empty}
+
+\blandscape
+
+# Unidades de Áreas Críticas
+
+```{r tablaCriticos, echo=FALSE, fig.align='center', results='asis', supress=TRUE, warning=FALSE, message=FALSE}
+
+plantas_print(listado_plantas = plantas_criticos)
+
+```
+
+\elandscape
+
+\clearpage
+
+\blandscape
+
+# Unidades de Hospitalización
+
+```{r tablaHosp, echo=FALSE, results='asis', fig.align='center', warning=FALSE}
+
+plantas_print(listado_plantas = plantas_hosp)
+
+```
+
+\elandscape

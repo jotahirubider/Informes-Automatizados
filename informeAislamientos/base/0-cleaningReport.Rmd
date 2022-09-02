@@ -1,0 +1,93 @@
+---
+title: "DOBLE LIMPIEZA HABITACIONES"
+output:
+  pdf_document: default
+date: '`r format(Sys.time(), "%d-%m-%Y %H:%M")`'
+df_print: paged
+geometry: left=3cm,right=3cm,top=1.5cm,bottom=5cm
+header-includes: \usepackage{graphicx} \usepackage{lscape} \usepackage[export]{adjustbox}
+  \newcommand{\blandscape}{\begin{landscape}} \newcommand{\elandscape}{\end{landscape}}
+  \usepackage{fancyhdr} \pagestyle{fancyplain} \usepackage{caption} \setlength\headheight{2cm}
+  \fancyhead[L]{ \includegraphics[width=3cm,valign=c]{../img/logo_hospital.jpg}} \fancyhead[R]{
+  \begin{tabular}{l} Servicio de \\ Medicina Preventiva \\ y Salud Pública \end{tabular}
+  } \setlength{\headheight}{75pt}
+---
+
+```{r setup, include=FALSE, warning=FALSE}
+
+pacman::p_load(readxl,rmarkdown,tidyverse,lubridate,knitr,RODBC,kableExtra)
+# CONFIGURAR RUTAS
+
+ruta_mdb <- gsub('"','',Sys.getenv("RUTA_MDB"))
+
+
+ruta_programa <- gsub('"','',Sys.getenv("RUTA_PROGRAMA"))
+
+# CONFIGURAR OPCIONES PREDETERMINADAS DE CHUNKS
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
+ # NO MENSAJES
+# SET WORKING DIRECTORY
+knitr::opts_knit$set(root.dir=ruta_programa)
+knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+dia_semana <- today() %>% wday()
+```
+
+```{r load, include=FALSE, warning=FALSE}
+# CARGAR CONSTANTES 
+source("utils/constants.R")
+# CARGAR CODIGO
+source("base/1-dataWrangling.R")
+source("base/2-tablesByFloor.R")
+```
+
+#### Listado de camas/habitaciones de pacientes que requieren **doble limpieza diaria [con desinfectante esporicida]{.ul}**[,]{.ul} con fecha de hoy `r as.character.Date(today(), format="%d-%m-%Y")`. 
+
+```{r wrangling, message=FALSE, warning=FALSE, include=FALSE}
+options(knitr.kable.NA = "")
+doble_limpieza <- tablas_informe %>% 
+  filter(microorganismo=="Candida auris" |
+           str_detect(microorganismo,"difficile")
+  ) %>% 
+  mutate(camaActual=case_when(
+    microorganismo=="Candida auris"          ~      paste0(camaActual,"¹"),
+    str_detect(microorganismo,"difficile")   ~      paste0(camaActual,"²")
+  )) %>% 
+  select(camaActual, plantaActual) %>% 
+  rename(Cama=camaActual)
+limpieza_criticos <- doble_limpieza %>% 
+  filter(str_detect(plantaActual,
+                    "UMI|REA|REQ|UCP|UCN")) %>% 
+  select(-plantaActual) %>% 
+  arrange(Cama)
+limpieza_hospitalizacion <- doble_limpieza %>% 
+  filter(str_detect(plantaActual,
+                    "UMI|REA|REQ|UCP|UCN",
+                    negate = T)) %>% 
+  select(-plantaActual) %>% 
+  arrange(Cama)
+
+```
+
+# Unidades de Áreas Críticas
+
+```{r criticos, echo=FALSE, message=FALSE, warning=FALSE, results='asis', fig.align='center'}
+limpieza_criticos %>%
+  kable() %>% kable_styling(latex_options = c("hold_position"),
+                            full_width = F) %>% 
+  row_spec(0,bold=TRUE) %>% 
+  print()
+```
+
+# Unidades de Hospitalización
+
+```{r hosp, echo=FALSE, message=FALSE, warning=FALSE, results='asis', fig.align='center'}
+limpieza_hospitalizacion %>%
+  kable() %>% kable_styling(latex_options = c("hold_position"),
+                            full_width = F) %>% 
+  row_spec(0,bold=TRUE) %>% 
+  print()
+```

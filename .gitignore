@@ -1,0 +1,11 @@
+atajos/
+_OLD_/
+DATA/
+*.pdf
+*.exe
+*resultados*
+*.log
+*.doc*
+*.lnk
+*.Rhistory
+*.db
