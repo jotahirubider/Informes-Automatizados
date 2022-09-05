@@ -4,7 +4,7 @@
 source("utils/constants.R")
 
 # CARGAR PAQUETES NECESARIOS
-pacman::p_load(tidyverse,lubridate,knitr,RODBC,kableExtra,labelled,scales,purrr, tidyquant)
+pacman::p_load(writexl,tcltk,tidyverse,lubridate,knitr,RODBC,kableExtra,labelled,scales,purrr, tidyquant)
 
 # ruta_mdb <- "//woody/asan/Servicios/EnfermeriaMedPreventiva/APLICACIONES/COMPARTIDO/IRAS/IRAS.mdb"
 
@@ -149,12 +149,35 @@ tablas_informe <- validos %>%
 
 total_ingresados <- tablas_informe %>% filter(estadoActual=="ACTIVO" & estadoAislamiento=="ACTIVO")
 
-
 total_criticos <- tablas_informe %>% filter(estadoActual=="ACTIVO"& estadoAislamiento=="ACTIVO",
                                             plantaActual=="UMI" | plantaActual=="REA" |
                                               plantaActual=="UCP" | plantaActual=="UCN" |
                                               plantaActual=="REQ")
-###### PONER VALIDACION DE FECHA
+
+ingreso_por_covid_na <- total_ingresados %>% 
+  filter(is.na(ingresoPorCovid))
+
+excel_revision <- paste0(
+  "K:/COVID/NAs/Revision-",
+  str_replace_all(str_replace_all(now()," ","-"),
+              ":",""),
+  ".xlsx"
+  )
+
+if (ingreso_por_covid_na %>% nrow() > 0) {
+  ingreso_por_covid_na %>% 
+    select(aSIP,aNHC,plantaActual,camaActual,GlobalRecordId) %>% 
+    write_xlsx(x=., path = excel_revision)
+  tkmessageBox(title="Causa COVID con NAs",
+               message=paste0("Hay ",ingreso_por_covid_na %>% nrow()," pacientes sin la variable COVID grave especificada.\nDetalles de los pacientes disponibles en INFORMES/COVID/NAs/Revision-.xlsx\n\nRevisar y completar la variable de cada paciente en EpiInfo."),
+               icon= "info")
+}
+
+total_ingresados_por_covid <- total_ingresados %>% 
+  filter(ingresoPorCovid=="SI")
+
+total_criticos_por_covid <- total_criticos %>% 
+  filter(ingresoPorCovid=="SI")
 
 casos_nuevos <- tablas_informe %>% 
   filter(fechaActivacion>fecha_hora_ultimo_informe,
@@ -192,7 +215,9 @@ estado_hoy <- tibble(.rows = 1) %>%
          total_criticos=total_criticos %>% nrow(),
          casos_nuevos=casos_nuevos %>% nrow(),
          altas=altas %>% nrow(),
-         exitus=exitus %>% nrow()) 
+         exitus=exitus %>% nrow(), 
+         total_ingresados_por_covid=total_ingresados_por_covid %>% nrow(),
+         total_criticos_por_covid=total_criticos_por_covid %>% nrow()) 
 
 
 covid_historico_new <- covid_historico %>% 
@@ -227,9 +252,29 @@ odbcClose(con)
 
 
 tabla_hoy <- estado_hoy %>% 
+  mutate(
+    p_ingresados_por_covid=if_else(
+      is.na(total_ingresados_por_covid/total_ingresados*100),
+      0,
+      total_ingresados_por_covid/total_ingresados*100) %>% 
+      as.integer(),
+    p_criticos_por_covid=if_else(
+      is.na(total_criticos_por_covid/total_criticos*100),
+      0,
+      total_criticos_por_covid/total_criticos*100) %>% 
+      as.integer()
+    ) %>% 
+  select(fecha,
+         total_ingresados,p_ingresados_por_covid,
+         total_criticos,p_criticos_por_covid,
+         casos_nuevos,
+         altas,
+         exitus) %>% 
   rename(Fecha=fecha,
          `Total ingresados`=total_ingresados,
+         `Ing. COVID grave (%)`=p_ingresados_por_covid,
          `Total críticos`=total_criticos,
+         `Crit. COVID grave (%)`=p_criticos_por_covid,
          `Casos nuevos`=casos_nuevos,
          Altas=altas,
          Exitus=exitus)

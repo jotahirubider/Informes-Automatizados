@@ -10,7 +10,7 @@ set RUTA_INFORMES="\\woody\asan\Servicios\EnfermeriaMedPreventiva\INFORMES"
 ::::::::::::::::::::::: NO MODIFICAR NADA A PARTIR DE AQUI ::::::::::::::::::::::
 
 set RUTA_START="makeReport.R"
-echo Generando Informe COVID-19 con fecha $date%
+echo Generando Informe COVID-19 con fecha %date%
 :: BORRAR UNIDAD INFORMES Y CREAR NUEVAMENTE
 net use k: /delete /y
 net use k: %RUTA_INFORMES% /persistent:no

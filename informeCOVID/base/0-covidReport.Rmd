@@ -40,10 +40,17 @@ source("base/2-trends.R")
 ```{r echo=FALSE, fig.align='center', results='asis', supress=TRUE}
 tabla_hoy %>%
   select(-Fecha) %>% 
-  kable() %>% kable_styling(latex_options = "hold_position") %>% 
+  kable() %>% kable_styling(latex_options = "hold_position",
+                            full_width = F) %>% 
+  column_spec(column = c(1:7), width = "2cm") %>% 
   print()
+```
+
+COVID grave: neumonía o insuficiencia respiratoria (se excluye COVID leve o asintomático).
+
+```{r echo=FALSE, fig.align='center', results='asis', supress=TRUE}
 tabla_por_plantas %>% 
-  kable() %>% kable_styling(latex_options = "hold_position") %>% 
+  kable() %>% kable_styling(latex_options = "hold_position") %>%
   print()
 ```
 
