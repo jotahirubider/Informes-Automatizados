@@ -10,10 +10,12 @@ condition_date <- as_datetime(paste0(as.character(today()),"14:00:00 CEST"))
 now <- as_datetime(now()) + hours(2)
 if (now > condition_date) {
   filename <- paste0(today(),"-Informe-Aislamientos.pdf")
+  filename_cleaning <- paste0(today(),"-Limpieza-Habitaciones.pdf")
 } else {
   filename <- paste0(today(),"-Informe-Aislamientos-BORRADOR.pdf")
+  filename_cleaning <- paste0(today(),"-Limpieza-Habitaciones-BORRADOR.pdf")
 }
-filename_cleaning <- paste0(today(),"-Limpieza-Habitaciones.pdf")
+
 # Empty error file
 try(invisible(file.remove(output_error_file)),silent = T)
 writeLines("",con=output_error_file)

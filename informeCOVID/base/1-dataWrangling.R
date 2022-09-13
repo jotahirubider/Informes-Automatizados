@@ -165,12 +165,12 @@ excel_revision <- paste0(
   )
 
 if (ingreso_por_covid_na %>% nrow() > 0) {
-  ingreso_por_covid_na %>% 
-    select(aSIP,aNHC,plantaActual,camaActual,GlobalRecordId) %>% 
+  ingreso_por_covid_na %>%
+    select(aSIP,aNHC,plantaActual,camaActual,GlobalRecordId) %>%
     write_xlsx(x=., path = excel_revision)
-  tkmessageBox(title="Causa COVID con NAs",
-               message=paste0("Hay ",ingreso_por_covid_na %>% nrow()," pacientes sin la variable COVID grave especificada.\nDetalles de los pacientes disponibles en INFORMES/COVID/NAs/Revision-.xlsx\n\nRevisar y completar la variable de cada paciente en EpiInfo."),
-               icon= "info")
+  # tkmessageBox(title="Causa COVID con NAs",
+  #              message=paste0("Hay ",ingreso_por_covid_na %>% nrow()," pacientes sin la variable COVID grave especificada.\nDetalles de los pacientes disponibles en INFORMES/COVID/NAs/Revision-.xlsx\n\nRevisar y completar la variable de cada paciente en EpiInfo."),
+  #              icon= "info")
 }
 
 total_ingresados_por_covid <- total_ingresados %>% 

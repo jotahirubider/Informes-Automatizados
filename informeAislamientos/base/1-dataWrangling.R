@@ -108,7 +108,8 @@ micro2 <- micro %>% pivot_wider(names_from = name,values_from = value) %>%
       mecanismoMR=="R = 3 grupos"              ~ "MR",
       mecanismoMR=="Carbapenemasa"             ~ "p. de carbapenemasa",
       grepl("BLEE",mecanismoMR)                ~ "BLEE",
-      startsWith(mecanismoMR, "R meticilina")  ~ "R meticilina"),
+      startsWith(mecanismoMR, "R meticilina")  ~ "R meticilina",
+      mecanismoMR=="AmpC"                      ~ "AmpC"),
     # Correción de nombre de Clostridioides difficile
     microorganismo=if_else(microorganismo=="Clostridium difficile",
                            "Clostridioides difficile",
@@ -176,7 +177,9 @@ total_por_unidad <- tabla_mapa_camas %>%
       str_ends(microorganismo, "BLEE")          ~ "BLEE",
       str_ends(microorganismo, "R meticilina")  ~ "R meticilina",
       str_ends(microorganismo, "difficile")     ~ "C. difficile",
-      str_detect(microorganismo, "Serratia marcescens") ~ "Otros"
+      str_detect(microorganismo, "Serratia marcescens") ~ "Otros",
+      str_detect(microorganismo, "Stenotrophomonas") ~ "Otros",
+      str_detect(microorganismo, "AmpC") ~ "Otros"
     )
   ) %>% 
   # CALCULAR TOTALES A LA DERECHA
