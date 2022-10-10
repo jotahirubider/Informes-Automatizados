@@ -67,7 +67,12 @@ curva_ingresados_parcial <- covid_historico_new %>%
   scale_x_datetime(breaks="30 days",
                    labels=date_format(format = "%m-%y"),
                    expand = c(0,0)) +
-  labs(title = "Período Marzo-Julio 2022")+
+  labs(title = paste0(
+    "Período Marzo-",
+    mes_max,
+    " ",
+    ano_max)
+    ) +
   theme(axis.text.x = element_text(angle=90),
         legend.position = "bottom",
         plot.title = element_text(hjust = 0.5))
@@ -98,6 +103,11 @@ curva_parcial <- covid_historico_new %>%
         legend.position = "bottom",
         plot.title = element_text(hjust = 0.5),
         plot.caption = element_text(hjust = 0.5)) +
-  labs(title = "Período Marzo-Julio 2022",
-       caption = "Media móvil 7 días") +
+  labs(title = paste0(
+    "Período Marzo-",
+    mes_max,
+    " ",
+    ano_max),
+    caption = "Media móvil 7 días"
+  ) +
   coord_x_date(xlim=c(fecha_min_curva_parcial,fecha_max_curva_parcial))

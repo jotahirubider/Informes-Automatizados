@@ -297,3 +297,12 @@ fecha_max_curva_parcial <- (covid_historico_new$fecha %>%
 
 fecha_min_curva_parcial <- fecha_min_curva_parcial %>% 
   dmy() %>% as.character.Date()
+
+mes_max <- covid_historico_new$fecha %>%
+  max() %>% 
+  months() %>% 
+  str_to_sentence()
+
+ano_max <- covid_historico_new$fecha %>%
+  max() %>% 
+  year()

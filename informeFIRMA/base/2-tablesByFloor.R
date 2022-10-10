@@ -51,9 +51,11 @@ plantas_print <- function(listado_plantas,print_tb=TRUE) {
            row_spec(0,bold=TRUE) %>%
            column_spec(column = c(1,2,5), width_min = "10cm") %>% 
            column_spec(column = c(1:5),border_right=T) %>% 
+           collapse_rows(columns = c(1,2,4,5),
+                         valign = "middle") %>% 
            kable_styling(latex_options = c("hold_position","striped"),
-                         full_width=T) %>%
-           collapse_rows(columns = c(1,2,4,5))) 
+                         full_width=T))
+
  
   # IMPRIMIR TABLAS
   if (print_tb) {  
