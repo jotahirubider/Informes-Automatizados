@@ -34,7 +34,8 @@ if (dia_semana==dia_informe_completo) {
     ylab("Nº aislamientos") +
     labs(color="") +
     scale_color_discrete(labels=c("Totales","SARS-CoV-2"))+
-    scale_x_datetime(date_breaks = "1 month",date_labels = "%b-%y")
+    scale_x_datetime(date_breaks = "1 month",date_labels = "%b-%y") +
+    theme(axis.text.x = element_text(angle=90))
   
   
   # CURVA PA GLOBAL, CRITICOS, HOSPITALIZADOS Y COVID -----------------------
@@ -54,7 +55,8 @@ if (dia_semana==dia_informe_completo) {
     xlab("Fecha") +
     scale_color_discrete(labels=c("SARS-CoV-2","Críticos","Global","Hospitalización"))+
     labs(color="") +
-    scale_x_datetime(date_breaks = "1 month",date_labels = "%b-%y")
+    scale_x_datetime(date_breaks = "1 month",date_labels = "%b-%y") +
+    theme(axis.text.x = element_text(angle=90))
   
   
   
@@ -79,7 +81,8 @@ if (dia_semana==dia_informe_completo) {
     # scale_x_continuous(breaks = c(1:52)) +
     ylab("Presión de aislamientos(%)") +
     xlab("Fecha") +
-    scale_x_datetime(date_breaks = "1 month",date_labels = "%b-%y")
+    scale_x_datetime(date_breaks = "1 month",date_labels = "%b-%y") +
+    theme(axis.text.x = element_text(angle=90))
   
   
   # CURVA MICROORGANISMO MULTIRRESISTENTES ----------------------------------
