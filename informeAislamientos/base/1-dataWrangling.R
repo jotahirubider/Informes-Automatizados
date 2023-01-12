@@ -51,7 +51,10 @@ n_camas <- hospital_tables %>%
 odbcClose(con); rm(con, table_names)
 # LIMPIAR CASOS BORRADOS E INACTIVOS
 validos <- vigilancia %>% filter(RECSTATUS==1)
-activos <- validos %>% filter(estadoActual=="ACTIVO")
+activos <- validos %>% filter(estadoActual=="ACTIVO") %>% 
+  # PROTECCION CONTRA NOMBRES VACIONES
+  filter(!is.na(nombre))
+rm(vigilancia,validos)
 rm(vigilancia,validos)
 
 
@@ -185,9 +188,11 @@ total_por_unidad <- tabla_mapa_camas %>%
   # CALCULAR TOTALES A LA DERECHA
   group_by(plantaActual,microorganismo) %>% 
   summarise(n=n(), .groups = "keep") %>% 
-  pivot_wider(names_from = microorganismo, values_from = n) %>% 
+  pivot_wider(names_from = microorganismo, values_from = n)
+n_col <- length(total_por_unidad) - 1
+total_por_unidad <- total_por_unidad %>% 
   rowwise() %>% 
-  mutate(`Total por Unidad`= sum(across(c(1:7)), na.rm = T)) %>% 
+  mutate(`Total por Unidad`= sum(across(c(1:all_of(n_col))), na.rm = T)) %>% 
   ungroup() %>% 
   arrange(plantaActual) %>% 
   bind_cols(total_pacientes)
