@@ -71,7 +71,9 @@ covid_historico <- sqlFetch(channel = con,
 
 rm(table_names)
 # LIMPIAR CASOS BORRADOS E INACTIVOS
-validos <- vigilancia %>% filter(RECSTATUS==1)
+validos <- vigilancia %>% filter(RECSTATUS==1) %>% 
+  # PROTECCION CONTRA NOMBRES VACIONES
+  filter(!is.na(nombre))
 # rm(vigilancia,validos)
 
 # TABLAS MICROBIOLOGIA ----------------------------------------------------
