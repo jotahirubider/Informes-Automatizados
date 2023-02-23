@@ -64,7 +64,7 @@ tabla_cruzada %>%
   row_spec(0,bold=TRUE) %>% 
   column_spec(2,bold=TRUE) %>% 
   print()
-cat("MMR: microorganismo multirresistente. EPC: enterobacterias productoras de carbapenemasa.")
+cat("BLEE: betalactamasa de expectro extendido.EPC: enterobacterias productoras de carbapenemasa.\nMMR: microorganismo multirresistente resistente a 3 o más grupos antimicrobianos\nR meticilina: Staphylococcus aureus resistente a meticilina (SARM) u otros microorganismos resistentes a meticilina.\nOtros: Stenotrophomonas maltophilia, Serratia marcescens, microorganismos productores de ampC.")
 ```
 
 `r if(dia_semana==dia_informe_completo) "\\clearpage"`

@@ -113,7 +113,7 @@ micro2 <- micro %>% pivot_wider(names_from = name,values_from = value) %>%
       grepl("BLEE",mecanismoMR)                ~ "BLEE",
       startsWith(mecanismoMR, "R meticilina")  ~ "R meticilina",
       mecanismoMR=="AmpC"                      ~ "AmpC"),
-    # Correción de nombre de Clostridioides difficile
+    # Correcion de nombre de Clostridioides difficile
     microorganismo=if_else(microorganismo=="Clostridium difficile",
                            "Clostridioides difficile",
                            microorganismo),
@@ -160,7 +160,12 @@ tabla_mapa_camas <- activos %>%
       str_detect(microorganismo,
                  pattern = "Candida auris") |
       str_detect(microorganismo,
-                 pattern = "Serratia marcescens"))
+                 pattern = "Serratia marcescens") |
+      str_detect(microorganismo,
+                 pattern = "AmpC") |
+      str_detect(microorganismo,
+                 pattern = "Stenotrophomonas maltophilia")
+    )
 
 total_pacientes <- tabla_mapa_camas %>% 
   distinct(NHC, .keep_all = T) %>% 
@@ -168,7 +173,7 @@ total_pacientes <- tabla_mapa_camas %>%
   summarise(n=n()) %>% 
   arrange(plantaActual) %>% 
   select(n) %>% 
-  rename(`Nº ptes. aislados`=n)
+  rename(`NÂº ptes. aislados`=n)
 
 total_por_unidad <- tabla_mapa_camas %>% 
   select(plantaActual,microorganismo) %>% 
@@ -205,7 +210,7 @@ total_por_mmr <- total_por_unidad %>% summarise(
 
 tabla_cruzada <- bind_rows(total_por_unidad,total_por_mmr) %>% 
   rename(Planta=plantaActual) %>% 
-  relocate(`Nº ptes. aislados`)
+  relocate(`NÂº ptes. aislados`)
 
 try(expr = rm(activos,micro,micro2,total_pacientes,
               total_por_mmr,total_por_unidad),silent=TRUE)
