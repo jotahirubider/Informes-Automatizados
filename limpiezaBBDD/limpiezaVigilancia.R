@@ -27,9 +27,12 @@ vigilancia <- vigilancia_tables %>%
 inactivos <- vigilancia %>% 
   filter(estadoActual=="INACTIVO" | is.na(aNHC)) 
 
+inactivos$LastSaveTime %>% max()
+
+
 #  A BORRAR ANTES DEL MES DESIGNADO
 a_borrar <- inactivos %>% 
-  filter(LastSaveTime<as_date("2022-09-01"))
+  filter(LastSaveTime<as_date("2023-01-01"))
 
 rm(vigilancia,inactivos,table_names)
 
@@ -82,3 +85,4 @@ Vigilancia13 <- sqlFetch(channel = con,
 #         fast=F,
 #         rownames = F,
 #         append = F)
+odbcClose(con)
