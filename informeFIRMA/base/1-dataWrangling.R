@@ -50,7 +50,9 @@ n_camas <- hospital_tables %>%
 # CERRAR CONEXION CON ACCESS
 odbcClose(con); rm(con, table_names)
 # LIMPIAR CASOS BORRADOS E INACTIVOS
-validos <- vigilancia %>% filter(RECSTATUS==1)
+validos <- vigilancia %>% filter(RECSTATUS==1) %>% 
+  # PROTECCION CONTRA NOMBRES VACIONES
+  filter(!is.na(nombre))
 activos <- validos %>% filter(estadoActual=="ACTIVO")
 rm(vigilancia,validos)
 
